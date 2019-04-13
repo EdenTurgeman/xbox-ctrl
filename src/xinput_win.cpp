@@ -1,4 +1,4 @@
-#include <nan.h>
+﻿#include <nan.h>
 #include "windows.h"
 #include "xinput.h"
 
@@ -7,6 +7,8 @@
 using namespace std;
 
 typedef int (*PowerOffController)(int);
+typedef byte(*XINPUT_BATTERY_INFORMATION)(byte);
+typedef byte(*BATTERY_DEVTYPE_GAMEPAD)(byte);
 
 NAN_METHOD(off) {
   int index = Nan::To<int>(info[0]).FromJust()-1;
@@ -126,12 +128,46 @@ NAN_METHOD(vibrateAll) {
   }
 }
 
+NAN_METHOD(battery) {
+  int index = Nan::To<int>(info[0]).FromJust()-1;
+
+	if(index < 0 || index > XUSER_MAX_COUNT) {
+	  return Nan::ThrowTypeError("invalid controller index");
+	}
+
+  XINPUT_BATTERY_INFORMATION BatteryInfo;
+	memset(&BatteryInfo, 0, sizeof(XINPUT_STATE));
+
+  if(XInputGetBatteryInformation(index, 0 /*0x00*/, &BatteryInfo) == ERROR_SUCCESS)
+  {
+    info.GetReturnValue().Set(BatteryInfo);
+  }
+}
+
+NAN_METHOD(batteryInfoAll) {
+  v8::Local<v8::Array> returnValue = Nan::New<v8::Array>();
+
+  for (int i = 0; i < XUSER_MAX_COUNT; i++)
+  {
+    XINPUT_BATTERY_INFORMATION BatteryInfo;
+    memset(&BatteryInfo, sizeof(XINPUT_BATTERY_INFORMATION));
+
+    if (XInputGetBatteryInformation(index, BATTERY_DEVTYPE_GAMEPAD, &BatteryInfo) == ERROR_SUCCESS) {
+      returnValue->Set(i, Nan::New<v8::Struct>(BatteryInfo));
+    }
+  }
+
+  info.GetReturnValue().Set(returnValue);
+}
+
 NAN_MODULE_INIT(init) {
   NAN_EXPORT(target, off);
   NAN_EXPORT(target, offAll);
   NAN_EXPORT(target, list);
   NAN_EXPORT(target, vibrate);
   NAN_EXPORT(target, vibrateAll);
+  NAN_EXPORT(target, battery);
+  NAN_EXPORT(target, batteryAll);
 }
 
 NODE_MODULE(xinput, init)
